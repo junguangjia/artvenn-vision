@@ -21,4 +21,8 @@ jobs:
       - run: uv run --no-sync ruff format --check .
       - run: uv run --no-sync mypy
       - run: uv run --no-sync pytest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node --test tests/ui-review.test.mjs
       - run: uv build --no-sources

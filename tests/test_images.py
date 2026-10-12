@@ -97,3 +97,13 @@ def test_raw_timeout_is_isolated(tmp_path, monkeypatch):
         render_preview(tmp_path / "synthetic.nef", tmp_path / "preview.jpg")
     assert commands[0][0][2] == "artvenn_vision.raw_worker"
     assert commands[0][1]["timeout"] == 60
+
+
+def test_preparation_has_no_fixed_total_photo_cap(tmp_path):
+    source = tmp_path / "photos"
+    source.mkdir()
+    for index in range(513):
+        Image.new("RGB", (2, 2)).save(source / f"{index:04d}.png")
+    job = prepare(source, tmp_path / "run")
+    assert len(job["assets"]) == 513
+    assert all(0 < len(segment["asset_ids"]) <= 8 for segment in job["segments"])

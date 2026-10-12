@@ -1,0 +1,1306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:artvenn:vision:algorithm-dataset:v1",
+  "title": "ArtVenn Vision metadata-only algorithm dataset v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "input_fingerprint",
+    "source_binding",
+    "ai_result_fingerprint",
+    "revision",
+    "media_included",
+    "source_hash_policy",
+    "assets",
+    "ai_proposals",
+    "ai_groups",
+    "ai_provenance",
+    "processed_asset_ids",
+    "unprocessed_asset_ids",
+    "draft",
+    "revisions",
+    "confirmations",
+    "current_annotations",
+    "unconfirmed_annotations",
+    "extension_interfaces",
+    "original_frames_fingerprint"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "artvenn-vision-algorithm-dataset/v1"
+    },
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^dataset-[a-f0-9]{64}$"
+    },
+    "input_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_binding": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ai_result_fingerprint": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "media_included": {
+      "const": false
+    },
+    "source_hash_policy": {
+      "const": "original_and_preview_bytes_reverified_at_export"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    },
+    "ai_proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "segment_id",
+          "proposal"
+        ],
+        "properties": {
+          "segment_id": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "proposal": {
+            "$ref": "#/$defs/proposal"
+          }
+        }
+      }
+    },
+    "ai_groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    },
+    "ai_provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "processed_asset_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+      },
+      "uniqueItems": true
+    },
+    "unprocessed_asset_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+      },
+      "uniqueItems": true
+    },
+    "draft": {
+      "$ref": "#/$defs/draft"
+    },
+    "revisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/revision"
+      }
+    },
+    "confirmations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/confirmation"
+      }
+    },
+    "current_annotations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/current"
+      }
+    },
+    "unconfirmed_annotations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/current"
+      }
+    },
+    "extension_interfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "region_editing",
+        "result_execution"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "artvenn-algorithm-extension/v1"
+        },
+        "region_editing": {
+          "const": "reserved"
+        },
+        "result_execution": {
+          "const": "reserved"
+        }
+      }
+    },
+    "original_frames_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$defs": {
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_id",
+        "title",
+        "asset_ids"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "asset_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "front": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "back": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "left": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "right": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "head": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "body": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "base": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "main_work": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "frontispiece": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "tail": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "cover_mount": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "leaf_page": {
+              "enum": [
+                "captured",
+                "not_captured",
+                "unknown",
+                "verified_absent",
+                null
+              ]
+            },
+            "coverage_evidence": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 1000
+            }
+          }
+        }
+      }
+    },
+    "photo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_id",
+        "role",
+        "labels"
+      ],
+      "properties": {
+        "object_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "enum": [
+            "context",
+            "detail",
+            "label",
+            "overview",
+            "unspecified"
+          ]
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "object_kind": {
+              "enum": [
+                "inscription",
+                "calligraphy",
+                "unknown",
+                null
+              ]
+            },
+            "representation": {
+              "enum": [
+                "stone",
+                "ink_original",
+                "rubbing",
+                "facsimile",
+                "unknown",
+                null
+              ]
+            },
+            "capture_method": {
+              "enum": [
+                "photo",
+                "scan",
+                "unknown",
+                null
+              ]
+            },
+            "coverage": {
+              "enum": [
+                "whole_object",
+                "whole_surface_page",
+                "detail",
+                "context",
+                "label",
+                "unknown",
+                null
+              ]
+            },
+            "surfaces": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "front",
+                  "back",
+                  "side_unspecified",
+                  "left",
+                  "right",
+                  "other",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "maxItems": 8
+            },
+            "side_reference": {
+              "enum": [
+                "facing_front",
+                "unknown",
+                "not_applicable",
+                null
+              ]
+            },
+            "parts": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "head",
+                  "body",
+                  "base",
+                  "other",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "maxItems": 6
+            },
+            "work_format": {
+              "enum": [
+                "handscroll",
+                "album",
+                "folded_book",
+                "hanging_scroll",
+                "other",
+                "unknown",
+                "not_applicable",
+                null
+              ]
+            },
+            "positions": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "main_work",
+                  "frontispiece",
+                  "tail",
+                  "cover_mount",
+                  "leaf_page",
+                  "other",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "maxItems": 8
+            },
+            "content": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "main_text",
+                  "stele_title",
+                  "title",
+                  "colophon",
+                  "title_slip",
+                  "signature",
+                  "seal",
+                  "ornament",
+                  "damage",
+                  "label",
+                  "unknown"
+                ]
+              },
+              "maxItems": 11
+            },
+            "version_label": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 120
+            },
+            "position_index": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "notes": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 1000
+            }
+          }
+        }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objects",
+        "photos"
+      ],
+      "properties": {
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/object"
+          }
+        },
+        "photos": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/photo"
+          }
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "value",
+        "evidence"
+      ],
+      "properties": {
+        "field": {
+          "enum": [
+            "object_form",
+            "period_original",
+            "persons",
+            "title"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "asset_ids",
+        "fields"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$"
+        },
+        "asset_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          }
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "role",
+        "evidence"
+      ],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+        },
+        "role": {
+          "enum": [
+            "context",
+            "detail",
+            "label",
+            "overview",
+            "unspecified"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "groups",
+        "roles",
+        "relationships",
+        "issues"
+      ],
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/role"
+          }
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "left",
+              "right",
+              "relation",
+              "evidence"
+            ],
+            "properties": {
+              "left": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "right": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "relation": {
+                "enum": [
+                  "same_physical_object",
+                  "different_but_related",
+                  "unrelated",
+                  "uncertain"
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/asset_id"
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "asset_ids",
+              "message"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "asset_ids": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/asset_id"
+                },
+                "uniqueItems": true
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 1800
+              }
+            }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+\\.(json|txt|jinja|safetensors)$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "native_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "model_id",
+        "revision",
+        "model_type",
+        "quantization_bits",
+        "weights",
+        "artifacts"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "artvenn-vision-model-v1"
+        },
+        "model_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "model_type": {
+          "const": "qwen3_vl"
+        },
+        "quantization_bits": {
+          "const": 4
+        },
+        "weights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    },
+    "import_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "origin"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "origin": {
+          "const": "existing_local_artvenn_proposals"
+        },
+        "model_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "input_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "model": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/native_model"
+            },
+            {
+              "$ref": "#/$defs/import_model"
+            }
+          ]
+        },
+        "prompt_version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$"
+        },
+        "binding": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "generation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_tokens",
+            "segment_timeout_seconds"
+          ],
+          "properties": {
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 512,
+              "maximum": 6144
+            },
+            "segment_timeout_seconds": {
+              "type": "integer",
+              "minimum": 30,
+              "maximum": 600
+            }
+          }
+        },
+        "imported_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "source_proposals_sha256",
+            "asset_source_sha256",
+            "segments_sha256",
+            "synthetic"
+          ],
+          "properties": {
+            "kind": {
+              "const": "hash_bound_local_proposal_import"
+            },
+            "source_proposals_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "asset_source_sha256": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "segments_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "synthetic": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "parent_revision",
+        "payload",
+        "payload_sha256",
+        "source_binding",
+        "created_at"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parent_revision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {
+          "$ref": "#/$defs/draft"
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_binding": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "created_at": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "confirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_id",
+        "revision",
+        "reviewer",
+        "payload_sha256",
+        "source_binding",
+        "created_at"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "pattern": "^decision-[a-f0-9]{64}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_binding": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "created_at": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "current": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "source_sha256",
+        "object_id",
+        "role",
+        "labels",
+        "revision",
+        "status",
+        "decision_id"
+      ],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "enum": [
+            "context",
+            "detail",
+            "label",
+            "overview",
+            "unspecified"
+          ]
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "object_kind": {
+              "enum": [
+                "inscription",
+                "calligraphy",
+                "unknown",
+                null
+              ]
+            },
+            "representation": {
+              "enum": [
+                "stone",
+                "ink_original",
+                "rubbing",
+                "facsimile",
+                "unknown",
+                null
+              ]
+            },
+            "capture_method": {
+              "enum": [
+                "photo",
+                "scan",
+                "unknown",
+                null
+              ]
+            },
+            "coverage": {
+              "enum": [
+                "whole_object",
+                "whole_surface_page",
+                "detail",
+                "context",
+                "label",
+                "unknown",
+                null
+              ]
+            },
+            "surfaces": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "front",
+                  "back",
+                  "side_unspecified",
+                  "left",
+                  "right",
+                  "other",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "maxItems": 8
+            },
+            "side_reference": {
+              "enum": [
+                "facing_front",
+                "unknown",
+                "not_applicable",
+                null
+              ]
+            },
+            "parts": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "head",
+                  "body",
+                  "base",
+                  "other",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "maxItems": 6
+            },
+            "work_format": {
+              "enum": [
+                "handscroll",
+                "album",
+                "folded_book",
+                "hanging_scroll",
+                "other",
+                "unknown",
+                "not_applicable",
+                null
+              ]
+            },
+            "positions": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "main_work",
+                  "frontispiece",
+                  "tail",
+                  "cover_mount",
+                  "leaf_page",
+                  "other",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "maxItems": 8
+            },
+            "content": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "main_text",
+                  "stele_title",
+                  "title",
+                  "colophon",
+                  "title_slip",
+                  "signature",
+                  "seal",
+                  "ornament",
+                  "damage",
+                  "label",
+                  "unknown"
+                ]
+              },
+              "maxItems": 11
+            },
+            "version_label": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 120
+            },
+            "position_index": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "notes": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 1000
+            }
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "human_confirmed",
+            "saved_unconfirmed"
+          ]
+        },
+        "decision_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^decision-[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "source_sha256",
+        "preview_sha256",
+        "source_dimensions",
+        "original_frame"
+      ],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "preview_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_dimensions": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "original_frame": {
+          "$ref": "#/$defs/original_frame"
+        }
+      }
+    },
+    "asset_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$"
+    },
+    "original_frame": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "frame"
+          ],
+          "properties": {
+            "status": {
+              "const": "verified"
+            },
+            "frame": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "version": {
+                  "const": "artvenn-original-frame/v1"
+                },
+                "assetId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "sourceSha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "exifOrientation": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                },
+                "coordinateSystem": {
+                  "const": "original_encoded_pixels_top_left"
+                },
+                "orientationApplied": {
+                  "const": false
+                }
+              },
+              "required": [
+                "version",
+                "assetId",
+                "sourceSha256",
+                "width",
+                "height",
+                "exifOrientation",
+                "coordinateSystem",
+                "orientationApplied"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "frame",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "unknown"
+            },
+            "frame": {
+              "type": "null"
+            },
+            "reason": {
+              "const": "original_metadata_unavailable"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

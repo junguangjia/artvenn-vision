@@ -16,9 +16,23 @@ No source files were moved or removed from the original project. Its runtime,
 review data, application and website behavior remain separate. Future adoption
 by ArtVenn would be a separate integration change.
 
-Excluded: website/backend/CMS code, publishing adapters, database schema,
+Excluded: website/backend/CMS code, publishing adapters, server database schema,
 credentials, private configuration, originals, preview datasets, model weights,
-Label Studio, native app shell and human review history.
+Label Studio, native app shell and existing private human review history.
+
+## Professional annotation adaptation
+
+The professional image taxonomy and algorithm extension contracts were adapted
+from the source application's `scripts/curation/photo_annotations.py` and its
+versioned annotation schemas. The independent package uses its own additive local
+SQLite review store and English loopback editor. It has no dependency on the
+source registry, Label Studio, CMS or protected runtime configuration.
+
+The local store freezes source image hashes, input identity and completed AI
+proposals; arbitrary group/single human assignments are separate revisions.
+Existing source application data was not moved or imported into the public
+repository. Region drawing, actual model results and website integration require
+separate implementations against the reserved contracts.
 
 The source application's Apache-2.0 license is retained in `LICENSE`. No source
 photographs or research datasets are included. Third-party packages and model

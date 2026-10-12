@@ -84,6 +84,8 @@ def test_resume_runs_only_failed_windows(photos, tmp_path, monkeypatch):
     monkeypatch.setattr("artvenn_vision.pipeline.subprocess.Popen", Child)
     first = analyze(run, tmp_path / "model", default_profile())
     assert first["status"] == "partial"
+    assert first["input_fingerprint"] == job["fingerprint"]
+    assert first["generation"] == {"max_tokens": 4096, "segment_timeout_seconds": 180}
     second = analyze(run, tmp_path / "model", default_profile())
     assert second["status"] == "completed"
     assert second["reused_segments"] == 1
@@ -91,6 +93,8 @@ def test_resume_runs_only_failed_windows(photos, tmp_path, monkeypatch):
     cached = analyze(run, tmp_path / "model", default_profile())
     assert cached["segments"] == second["segments"]
     assert cached["reused_segments"] == 2
+    assert cached["input_fingerprint"] == job["fingerprint"]
+    assert cached["generation"] == second["generation"]
     assert len(calls) == 2
     with pytest.raises(VisionError, match="resume_configuration_changed"):
         analyze(run, tmp_path / "model", default_profile(), max_tokens=2048)
@@ -207,3 +211,5 @@ def test_large_completed_run_can_resume(photos, tmp_path, monkeypatch):
     result = analyze(run, tmp_path / "model", default_profile())
     assert result["status"] == "completed"
     assert len(result["segments"]) == 512
+    assert result["input_fingerprint"] == job["fingerprint"]
+    assert result["generation"] == {"max_tokens": 4096, "segment_timeout_seconds": 180}

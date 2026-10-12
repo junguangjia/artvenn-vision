@@ -17,7 +17,6 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
 RAW_EXTENSIONS = {".arw", ".dng", ".cr2", ".nef"}
 MAX_PIXELS = 80_000_000
 MAX_EDGE = 1536
-MAX_ASSETS = 512
 
 
 def regular_source(root: Path, path: Path) -> None:
@@ -105,7 +104,7 @@ def prepare(
         ),
         key=lambda path: path.relative_to(root).as_posix(),
     )
-    require(0 < len(files) <= MAX_ASSETS, "image_count_must_be_between_1_and_512")
+    require(len(files) > 0, "no_supported_images")
     destination.mkdir(parents=True, mode=0o700)
     previews = destination / "previews"
     previews.mkdir(mode=0o700)
@@ -149,7 +148,7 @@ def prepare(
 def validate_input(run: Path) -> dict[str, Any]:
     from .storage import read_json
 
-    job = read_json(run / "input.json")
+    job = read_json(run / "input.json", 256 * 1024 * 1024)
     require(
         isinstance(job, dict) and job.get("schema_version") == "artvenn-vision-input-v1",
         "invalid_input_schema",
