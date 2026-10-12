@@ -65,7 +65,7 @@ def validate_request(request: Any) -> None:
         "invalid_model_path",
     )
     segments = request["segments"]
-    require(isinstance(segments, list) and 0 < len(segments) <= 512, "invalid_segments")
+    require(isinstance(segments, list) and len(segments) > 0, "invalid_segments")
     seen_ids: set[str] = set()
     seen_segments: set[str] = set()
     for segment in segments:

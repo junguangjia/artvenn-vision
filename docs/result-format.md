@@ -10,6 +10,8 @@ into the model prompt. Only opaque image IDs and derived RGB previews are passed
 - `status`: `completed`, `partial`, or `failed`.
 - `human_review_required`, always true; `cloud` and `mock`, always false.
 - `binding`: the input, model profile, prompt version and generation settings hash.
+- `input_fingerprint`: the prepared manifest fingerprint bound by `binding`.
+- `generation`: the bound maximum token count and per-window timeout.
 - `model`: exact model ID, revision, weight and configuration/template hashes.
 - `segments`: original per-window proposals, timings and failure categories.
 - `grouping`: effective user-declared grouping or AI candidate groups.
@@ -42,3 +44,17 @@ unresolved. Relationships refer to the window's original group keys.
 The strict Python validator is the canonical proposal contract. Raw generated
 text is retained in private `attempt-*.raw.txt` files for local diagnosis; it is
 never treated as trusted output or printed by the CLI.
+
+The review store requires this source binding before accepting existing AI proposals.
+For a native result created before the explicit fingerprint and generation fields
+were added, repeat its original `analyze` command with the same model and settings.
+A complete, valid checkpoint is revalidated and stamped without new inference;
+partial runs also retry their unfinished windows. A result that cannot be bound to
+the current prepared Originals is refused rather than associated by image ID alone.
+
+A verified local proposal import uses `imported_source` instead of a native model
+binding: it records the source proposal snapshot digest, exact Original hashes for
+every prepared asset, a segment digest and an explicit synthetic flag. Imported
+proposals remain candidates and cannot confer human confirmation. This format is
+used by the isolated migration validation; the CLI does not offer an automatic
+import from another application.

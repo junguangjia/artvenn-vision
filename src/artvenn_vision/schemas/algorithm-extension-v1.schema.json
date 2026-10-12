@@ -1,0 +1,640 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "artvenn-algorithm-extension/v1"
+        },
+        "kind": {
+          "const": "region"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "assetId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "logicalAssetId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "sourceSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "frame": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "version": {
+                  "const": "artvenn-original-frame/v1"
+                },
+                "assetId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "sourceSha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "exifOrientation": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                },
+                "coordinateSystem": {
+                  "const": "original_encoded_pixels_top_left"
+                },
+                "orientationApplied": {
+                  "const": false
+                }
+              },
+              "required": [
+                "version",
+                "assetId",
+                "sourceSha256",
+                "width",
+                "height",
+                "exifOrientation",
+                "coordinateSystem",
+                "orientationApplied"
+              ]
+            }
+          },
+          "required": ["assetId", "logicalAssetId", "sourceSha256", "frame"]
+        },
+        "geometry": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "const": "rectangle"
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": ["type", "x", "y", "width", "height"]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "const": "polygon"
+                },
+                "points": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 10000,
+                  "items": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "required": ["type", "points"]
+            }
+          ]
+        },
+        "content": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "main_text",
+              "stele_title",
+              "title",
+              "colophon",
+              "title_slip",
+              "signature",
+              "seal",
+              "ornament",
+              "damage",
+              "unknown"
+            ]
+          }
+        },
+        "reading_order": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "transcription": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "diplomatic": {
+              "type": ["string", "null"],
+              "maxLength": 4000
+            },
+            "normalized": {
+              "type": ["string", "null"],
+              "maxLength": 4000
+            },
+            "state": {
+              "enum": [
+                "visible",
+                "uncertain",
+                "lost",
+                "editorial_restoration",
+                "unknown"
+              ]
+            }
+          },
+          "required": ["diplomatic", "normalized", "state"]
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": ["candidate", "human_confirmed"]
+            },
+            "decision_id": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": ["status", "decision_id"]
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "id",
+        "source",
+        "geometry",
+        "content",
+        "reading_order",
+        "transcription",
+        "review"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "artvenn-algorithm-extension/v1"
+        },
+        "kind": {
+          "const": "algorithm_result"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "base_dataset_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "annotation_dataset_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "task": {
+          "enum": ["ocr", "layout", "registration"]
+        },
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": ["name", "revision"]
+        },
+        "parameters_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "assetId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "logicalAssetId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "sourceSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "const": "artvenn-original-frame/v1"
+                  },
+                  "assetId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "sourceSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "exifOrientation": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8
+                  },
+                  "coordinateSystem": {
+                    "const": "original_encoded_pixels_top_left"
+                  },
+                  "orientationApplied": {
+                    "const": false
+                  }
+                },
+                "required": [
+                  "version",
+                  "assetId",
+                  "sourceSha256",
+                  "width",
+                  "height",
+                  "exifOrientation",
+                  "coordinateSystem",
+                  "orientationApplied"
+                ]
+              }
+            },
+            "required": ["assetId", "logicalAssetId", "sourceSha256", "frame"]
+          }
+        },
+        "status": {
+          "const": "candidate"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "schema_version": {
+                "const": "artvenn-algorithm-extension/v1"
+              },
+              "kind": {
+                "const": "region"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "assetId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "logicalAssetId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "sourceSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "frame": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "version": {
+                        "const": "artvenn-original-frame/v1"
+                      },
+                      "assetId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "sourceSha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "width": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "height": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "exifOrientation": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 8
+                      },
+                      "coordinateSystem": {
+                        "const": "original_encoded_pixels_top_left"
+                      },
+                      "orientationApplied": {
+                        "const": false
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "assetId",
+                      "sourceSha256",
+                      "width",
+                      "height",
+                      "exifOrientation",
+                      "coordinateSystem",
+                      "orientationApplied"
+                    ]
+                  }
+                },
+                "required": [
+                  "assetId",
+                  "logicalAssetId",
+                  "sourceSha256",
+                  "frame"
+                ]
+              },
+              "geometry": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "rectangle"
+                      },
+                      "x": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "width": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "height": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": ["type", "x", "y", "width", "height"]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "polygon"
+                      },
+                      "points": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 10000,
+                        "items": {
+                          "type": "array",
+                          "minItems": 2,
+                          "maxItems": 2,
+                          "items": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    },
+                    "required": ["type", "points"]
+                  }
+                ]
+              },
+              "content": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "main_text",
+                    "stele_title",
+                    "title",
+                    "colophon",
+                    "title_slip",
+                    "signature",
+                    "seal",
+                    "ornament",
+                    "damage",
+                    "unknown"
+                  ]
+                }
+              },
+              "reading_order": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              },
+              "transcription": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "diplomatic": {
+                    "type": ["string", "null"],
+                    "maxLength": 4000
+                  },
+                  "normalized": {
+                    "type": ["string", "null"],
+                    "maxLength": 4000
+                  },
+                  "state": {
+                    "enum": [
+                      "visible",
+                      "uncertain",
+                      "lost",
+                      "editorial_restoration",
+                      "unknown"
+                    ]
+                  }
+                },
+                "required": ["diplomatic", "normalized", "state"]
+              },
+              "review": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "enum": ["candidate", "human_confirmed"]
+                  },
+                  "decision_id": {
+                    "type": ["string", "null"]
+                  }
+                },
+                "required": ["status", "decision_id"]
+              }
+            },
+            "required": [
+              "schema_version",
+              "kind",
+              "id",
+              "source",
+              "geometry",
+              "content",
+              "reading_order",
+              "transcription",
+              "review"
+            ]
+          }
+        },
+        "registration": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "source_asset_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "target_asset_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "transform": {
+                  "type": "array",
+                  "minItems": 9,
+                  "maxItems": 9,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "correspondences": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "target": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "required": ["source", "target"]
+                  }
+                },
+                "verified": {
+                  "const": false
+                }
+              },
+              "required": [
+                "source_asset_id",
+                "target_asset_id",
+                "transform",
+                "correspondences",
+                "verified"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "run_id",
+        "base_dataset_id",
+        "annotation_dataset_id",
+        "task",
+        "model",
+        "parameters_sha256",
+        "inputs",
+        "status",
+        "regions",
+        "registration"
+      ]
+    }
+  ]
+}

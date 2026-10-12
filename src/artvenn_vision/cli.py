@@ -12,6 +12,8 @@ from . import __version__
 from .images import prepare
 from .models import default_profile, download_model, register_model
 from .pipeline import analyze
+from .review_server import serve
+from .review_store import ReviewStore
 from .schema import ProposalError
 from .storage import VisionError, require
 
@@ -51,6 +53,14 @@ def parser() -> argparse.ArgumentParser:
     register.add_argument("--model-id", required=True)
     register.add_argument("--revision", required=True, help="Exact 40-character upstream commit")
     register.add_argument("--output", type=Path, required=True)
+    review = commands.add_parser(
+        "review", help="Open the private local photo and annotation editor"
+    )
+    review.add_argument("--run", type=Path, required=True)
+    review.add_argument("--port", type=int, default=0, help="Loopback port; 0 chooses a free port")
+    export = commands.add_parser("export", help="Export confirmed metadata and review lineage")
+    export.add_argument("--run", type=Path, required=True)
+    export.add_argument("--output", type=Path, required=True, help="New export directory")
     return root
 
 
@@ -89,6 +99,19 @@ def main(argv: list[str] | None = None) -> int:
                 "windows": len(value["segments"]),
                 "completed": sum(s["status"] == "completed" for s in value["segments"]),
                 "reused_windows": value.get("reused_segments", 0),
+            }
+        elif args.command == "review":
+            serve(args.run, args.port)
+            return 0
+        elif args.command == "export":
+            require(not args.output.parent.is_symlink(), "export_parent_invalid")
+            args.output.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+            with ReviewStore(args.run) as store:
+                value = store.export(args.output)
+            result = {
+                "status": "exported",
+                "dataset_id": value.get("dataset_id"),
+                "counts": value.get("counts"),
             }
         elif args.command == "download-model":
             value = download_model(args.model_dir, args.profile)

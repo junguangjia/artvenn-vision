@@ -34,7 +34,45 @@ run directory. To use an existing model, pass its directory and skip the downloa
 JPEG, PNG, WebP and TIFF are supported. Optional Sony ARW, DNG, CR2 and NEF preparation
 requires `uv sync --locked --extra mlx --extra raw`. RAW conversion uses LibRaw and
 camera white balance; its preview colors are developed colors, not camera JPEGs.
-Use `--recursive` to include selected subfolders. Maximum: 512 images per run.
+Use `--recursive` to include selected subfolders. There is no fixed total photo or
+group count cap. Inference still uses windows of at most eight images; per-file,
+metadata-size and execution-time bounds remain. Larger runs require more local
+storage, memory and processing time.
+
+## Review, annotate and export
+
+```sh
+# Works before or after analysis, including partial runs. No model is loaded.
+uv run artvenn-vision review --run runs/inscription
+# Open the printed http://127.0.0.1:<port> URL in your browser.
+
+# After an explicit human confirmation in the editor:
+uv run artvenn-vision export --run runs/inscription --output datasets/inscription-v1
+```
+
+The English editor shows every prepared photo, including photos without a completed
+AI result. AI source groups remain separate and unchanged. Select whole groups or
+individual photos, assign them to a new or existing named object, and set image
+roles and professional annotations individually or in batches. The toolbar stays
+visible while scrolling and the grid adapts to the available window width.
+
+Professional annotations distinguish stele surfaces and parts, calligraphy format
+and position, content, representation, capture coverage and version. These are
+independent of the broad photo role. A photo can contain multiple surfaces,
+positions or content types. Unknown is a valid choice; do not manufacture labels.
+
+**Save draft** stores an immutable revision without confirming it. **Confirm**
+records your explicit decision and reviewer name for the saved revision. Editing
+after confirmation creates another unconfirmed revision. Default exports require
+the current revision to be confirmed and contain metadata, source hashes, AI
+proposals and review history, with no original/preview image bytes or local paths.
+See [annotation workflow and contracts](docs/annotations.md). Drawing regions and
+running algorithms are reserved interfaces, not implemented analysis tools.
+
+Starting a review freezes the prepared inputs and current AI result, including a
+partial or absent result. Finish intended AI retries before starting durable review.
+If analysis changes that result afterward, the existing review refuses reuse;
+prepare a separate run and review while keeping the original records preserved.
 
 ## One folder, one inscription
 
@@ -105,6 +143,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy
 uv run pytest
+node --test tests/ui-review.test.mjs
 uv build
 ```
 
@@ -113,8 +152,9 @@ weights or a GPU. Actual MLX inference is a separate local check. See
 [validation](docs/validation.md), [extraction provenance](docs/extraction.md) and
 [the result format](docs/result-format.md).
 
-Website publishing, CMS integration, object databases, Label Studio, native app UI
-and human review storage remain in the original ArtVenn project. This package
-ends at local recognition proposals. Model weights and private photographs are
-not included in the repository.
+Website publishing, CMS integration, Label Studio and the native app shell remain
+in the original ArtVenn project. This package includes a private local review store
+and browser editor and ends at recognition proposals and explicitly reviewed
+metadata exports. Model weights and private photographs are not included in the
+repository. Running this project never uploads photos or publicly publishes them.
 

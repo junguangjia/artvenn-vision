@@ -168,6 +168,11 @@ def _analyze(
             }
             previous.update(
                 schema_version="artvenn-vision-result-v1",
+                input_fingerprint=job["fingerprint"],
+                generation={
+                    "max_tokens": max_tokens,
+                    "segment_timeout_seconds": segment_timeout,
+                },
                 status="completed",
                 human_review_required=True,
                 cloud=False,
@@ -240,6 +245,8 @@ def _analyze(
     completed = sum(segment["status"] == "completed" for segment in segments)
     result = {
         "schema_version": "artvenn-vision-result-v1",
+        "input_fingerprint": job["fingerprint"],
+        "generation": {"max_tokens": max_tokens, "segment_timeout_seconds": segment_timeout},
         "binding": binding,
         "status": "completed"
         if completed == len(segments)

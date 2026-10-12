@@ -18,3 +18,11 @@ def test_error_summary_contains_no_source_contents(photos, tmp_path, capsys):
         "status": "failed",
         "error_category": "output_already_exists",
     }
+
+
+def test_export_command_rejects_unconfirmed_data(photos, tmp_path, capsys):
+    run = tmp_path / "run"
+    assert main(["prepare", str(photos), "--output", str(run)]) == 0
+    capsys.readouterr()
+    assert main(["export", "--run", str(run), "--output", str(tmp_path / "dataset")]) == 2
+    assert json.loads(capsys.readouterr().err)["status"] == "failed"
