@@ -5,23 +5,23 @@
   const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   const uncertainty = new Set(["unknown", "not_applicable"]);
   const roleNames = { overview: "Overall view", detail: "Detail", label: "Exhibition label", context: "Environment", unspecified: "Unspecified" };
-  const axisNames = {
-    object_kind: "Object type", representation: "Image source", capture_method: "Acquisition",
-    coverage: "Capture coverage", surfaces: "Stele surfaces", side_reference: "Side reference",
-    parts: "Stele parts", work_format: "Calligraphy format", positions: "Calligraphy position",
-    content: "Visible content", version_label: "Rubbing / version name", position_index: "Page / capture number", notes: "Evidence and uncertainty",
-  };
+  const coverageRoles = { whole_object: "overview", whole_surface_page: "overview", detail: "detail", context: "context", label: "label", unknown: "unspecified" };
   const valueNames = {
-    inscription: "Inscription", calligraphy: "Calligraphy", unknown: "Unknown", not_applicable: "Not applicable",
-    stone: "Original stone", ink_original: "Original ink", rubbing: "Rubbing", facsimile: "Facsimile / copy", photo: "Photograph", scan: "Scan",
-    whole_object: "Whole object", whole_surface_page: "Whole surface / page", detail: "Detail", context: "Environment", label: "Exhibition label",
-    front: "Front (stele yang)", back: "Back (stele yin)", side_unspecified: "Side, unspecified", left: "Left side", right: "Right side", other: "Other",
-    facing_front: "Left / right when facing the stele front", head: "Stele head", body: "Stele body", base: "Stele base",
-    handscroll: "Handscroll", album: "Album", folded_book: "Folded book", hanging_scroll: "Hanging scroll",
-    main_work: "Main work", frontispiece: "Frontispiece", tail: "Tail", cover_mount: "Cover / mounting", leaf_page: "Leaf / page",
-    main_text: "Main text", stele_title: "Stele forehead text", title: "Title text", colophon: "Colophon", title_slip: "Title slip", signature: "Inscription / signature", seal: "Seal", ornament: "Ornament", damage: "Damage",
+    stone: "Original stone", ink_original: "Original ink", rubbing: "Rubbing", facsimile: "Copy", unknown: "Unknown",
+    whole_object: "Whole object", whole_surface_page: "Whole face / page", detail: "Detail", context: "Setting", label: "Exhibition label",
+    front: "Front (yang)", back: "Back (yin)", side_unspecified: "Side, unidentified", left: "Left side", right: "Right side",
+    main_work: "Main work", frontispiece: "Frontispiece", tail: "Tail section", cover_mount: "Cover / mounting", leaf_page: "Leaf / page",
+    main_text: "Main text", stele_title: "Stele title", colophon: "Colophon", title_slip: "Title slip", signature: "Signature / inscription", seal: "Seal",
   };
   const name = (value) => valueNames[value] || String(value).replaceAll("_", " ");
+  const inspectorAxes = {
+    representation: ["stone", "ink_original", "rubbing", "facsimile", "unknown"],
+    coverage: ["whole_object", "whole_surface_page", "detail", "context", "label", "unknown"],
+    surfaces: ["front", "back", "side_unspecified", "left", "right", "unknown"],
+    positions: ["main_work", "frontispiece", "tail", "cover_mount", "leaf_page", "unknown"],
+    content: ["main_text", "stele_title", "colophon", "title_slip", "signature", "seal", "unknown"],
+  };
+  const multiAxes = new Set(["surfaces", "positions", "content"]);
 
   function sourceGroups(snapshot) {
     const available = new Set(snapshot.assets.map((a) => a.asset_id));
@@ -43,8 +43,7 @@
   function synchronizeMemberships(draft) {
     for (const object of draft.objects)
       object.asset_ids = Object.entries(draft.photos).filter(([, photo]) => photo.object_id === object.object_id).map(([id]) => id);
-    // Source proposals and prior saved revisions retain emptied source objects.
-    // This draft contains only the named destinations of its current photos.
+    // Prior revisions and AI source proposals retain their original memberships.
     draft.objects = draft.objects.filter((object) => object.asset_ids.length);
     return draft;
   }
@@ -83,15 +82,68 @@
     }
     return next;
   }
-  function confirmationAllowed(snapshot, draft, dirty, reviewer) {
-    return !!snapshot && snapshot.revision > 0 && !dirty && !!reviewer.trim() &&
+  function selectionContext(draft, assetIds) {
+    return JSON.stringify([...new Set(assetIds)].sort().map((id) => [id, draft.photos[id]?.object_id ?? null]));
+  }
+  function pendingCount(pending) {
+    return Object.values(pending).reduce((count, edits) => count + edits.length, 0);
+  }
+  function projectPatch(draft, assetIds, pending) {
+    let next = copy(draft);
+    for (const [axis, edits] of Object.entries(pending))
+      for (const edit of edits) {
+        next = editSelected(next, assetIds, { axis, ...edit, multi: multiAxes.has(axis) });
+        // Only an explicit framing choice changes the legacy purpose. Clearing
+        // framing never interprets an existing AI purpose as a human label.
+        if (axis === "coverage" && edit.operation === "set" && Object.hasOwn(coverageRoles, edit.value))
+          next = editSelected(next, assetIds, { role: coverageRoles[edit.value] });
+      }
+    return next;
+  }
+  function valueState(draft, assetIds, axis, value) {
+    const ids = [...new Set(assetIds)];
+    if (!ids.length) return "none";
+    const count = ids.filter((id) => {
+      const current = draft.photos[id]?.labels?.[axis];
+      return multiAxes.has(axis) ? (current || []).includes(value) : same(current, value);
+    }).length;
+    return count === ids.length ? "all" : count ? "partial" : "none";
+  }
+  function stageChoice(draft, assetIds, pending, axis, value) {
+    const next = copy(pending);
+    const projected = projectPatch(draft, assetIds, pending);
+    const operation = multiAxes.has(axis) ? valueState(projected, assetIds, axis, value) === "all" ? "remove" : "add" : "set";
+    next[axis] ||= [];
+    next[axis].push({ operation, value: multiAxes.has(axis) ? [value] : value });
+    return next;
+  }
+  function stageClear(pending, axis) {
+    return { ...copy(pending), [axis]: [{ operation: "clear", value: null }] };
+  }
+  function sideReferenceNeeded(draft, assetIds) {
+    return [...new Set(assetIds)].some((id) => {
+      const values = draft.photos[id]?.labels || {};
+      return (values.surfaces || []).some((value) => value === "left" || value === "right") && values.side_reference !== "facing_front";
+    });
+  }
+  function applyInspectorPatch(draft, assetIds, pending, context = selectionContext(draft, assetIds)) {
+    const ids = [...new Set(assetIds)];
+    if (!ids.length || ids.some((id) => !Object.hasOwn(draft.photos, id))) throw new Error("Select prepared photos before applying labels.");
+    if (selectionContext(draft, ids) !== context) throw new Error("The selected photos or their assigned objects changed. Choose the labels again.");
+    if (ids.some((id) => !draft.photos[id].object_id)) throw new Error("Assign every selected photo to a named object first.");
+    const next = projectPatch(draft, ids, pending);
+    if (sideReferenceNeeded(next, ids)) throw new Error("Confirm that left and right are identified while facing the stele front.");
+    return next;
+  }
+  function confirmationAllowed(snapshot, draft, dirty, reviewer, pending = false) {
+    return !!snapshot && snapshot.revision > 0 && !dirty && !pending && !!reviewer.trim() &&
       draft.objects.length > 0 && draft.objects.every((object) => object.title.trim() && object.asset_ids.length) &&
       Object.values(draft.photos).every((photo) => photo.object_id && draft.objects.some((object) => object.object_id === photo.object_id && object.title.trim()));
   }
-  function saveAllowed(snapshot, dirty) {
-    return !!snapshot && (snapshot.revision === 0 || dirty);
+  function saveAllowed(snapshot, dirty, pending = false) {
+    return !!snapshot && !pending && (snapshot.revision === 0 || dirty);
   }
-  const helpers = { sourceGroups, toggleSelection, assignPhotos, editSelected, patchValue, confirmationAllowed, saveAllowed };
+  const helpers = { sourceGroups, toggleSelection, assignPhotos, editSelected, patchValue, selectionContext, pendingCount, projectPatch, valueState, stageChoice, stageClear, sideReferenceNeeded, applyInspectorPatch, confirmationAllowed, saveAllowed };
   if (typeof module !== "undefined" && module.exports) module.exports = helpers;
   if (typeof document === "undefined") return;
 
@@ -104,7 +156,9 @@
   let busy = false;
   let conflict = false;
   let taxonomy = {};
-  let bulkValue = null;
+  let pending = {};
+  let pendingContext = null;
+  let mode = "stele";
   const cards = new Map();
   const groupChecks = [];
   const node = (tag, text) => {
@@ -117,12 +171,14 @@
     result.append(control);
     return result;
   };
+  function button(text, click, className = "") {
+    const control = node("button", text); control.type = "button"; control.className = className; control.onclick = click;
+    return control;
+  }
   function selectControl(values, value, change) {
     const control = node("select");
     for (const [key, text] of values) {
-      const option = node("option", text);
-      option.value = key ?? "";
-      control.append(option);
+      const option = node("option", text); option.value = key ?? ""; control.append(option);
     }
     control.value = value ?? "";
     control.onchange = () => change(control.value);
@@ -132,6 +188,16 @@
     q("notice").textContent = text;
     q("notice").classList.toggle("error", error);
   }
+  function canEdit() { return !!draft && !busy && !conflict; }
+  function canLabel() { return canEdit() && selection.size > 0 && [...selection].every((id) => draft.photos[id]?.object_id); }
+  function discardPending(message) {
+    pending = {}; pendingContext = null;
+    if (message) q("batch-status").textContent = message;
+  }
+  function reconcilePending() {
+    if (pendingCount(pending) && pendingContext !== selectionContext(draft, selection))
+      discardPending("Unapplied labels were discarded because the selected photos or their object assignment changed.");
+  }
   function updated(next) {
     if (same(next, draft)) return;
     draft = next;
@@ -140,125 +206,161 @@
     updateActions();
   }
   function updateActions() {
-    const ready = !!snapshot && !busy;
-    q("save").disabled = !ready || conflict || !saveAllowed(snapshot, dirty);
-    q("confirm").disabled = !ready || conflict || !confirmationAllowed(snapshot, draft, dirty, q("reviewer").value) || snapshot.confirmed_revision === snapshot.revision;
-    q("export").disabled = !ready || conflict || dirty || snapshot.confirmed_revision !== snapshot.revision;
+    const ready = !!snapshot && !busy && !conflict;
+    if (draft) reconcilePending();
+    const staged = pendingCount(pending) > 0;
+    q("save").disabled = !ready || !saveAllowed(snapshot, dirty, staged);
+    q("confirm").disabled = !ready || !confirmationAllowed(snapshot, draft, dirty, q("reviewer").value, staged) || snapshot.confirmed_revision === snapshot.revision;
+    q("export").disabled = !ready || staged || dirty || snapshot.confirmed_revision !== snapshot.revision;
+    q("reload").disabled = busy || staged;
+    q("reviewer").disabled = busy || conflict;
     q("revision-status").textContent = snapshot ? "Saved revision " + snapshot.revision + " · " + (dirty ? "Unsaved changes" : snapshot.confirmed_revision === snapshot.revision ? "Human confirmed" : "Draft, not confirmed") : "";
-    q("confirmation-help").textContent = dirty ? "Save these edits before confirming. Confirmation uses the saved revision." : snapshot?.confirmed_revision === snapshot?.revision && snapshot ? "The saved revision is confirmed. Further edits create a new draft." : "Assign every photo to a named object and enter your reviewer name before confirming.";
+    q("confirmation-help").textContent = staged ? "Apply or discard the pending labels before saving, confirming, exporting or reloading." : dirty ? "Save these edits before confirming. Confirmation uses the saved revision." : snapshot?.confirmed_revision === snapshot?.revision && snapshot ? "The saved revision is confirmed. Further edits create a new draft." : "Assign every photo to a named object and enter your reviewer name before confirming.";
     updateSelection();
   }
   function updateSelection() {
+    if (draft) reconcilePending();
     q("selected-count").textContent = selection.size + " unique photos selected";
-    q("select-all").disabled = busy || !snapshot;
-    q("clear-selection").disabled = busy || !snapshot || !selection.size;
+    q("select-all").disabled = !canEdit();
+    q("clear-selection").disabled = !canEdit() || !selection.size;
+    q("assignment-target").disabled = !canEdit();
+    q("assignment-title").disabled = !canEdit();
+    q("assign").disabled = !canEdit() || !selection.size || !q("assignment-title").value.trim();
     for (const [id, entries] of cards)
-      for (const { tile, check } of entries) { check.checked = selection.has(id); tile.classList.toggle("selected", check.checked); }
+      for (const { tile, check, single, object } of entries) {
+        check.checked = selection.has(id); check.disabled = !canEdit();
+        single.disabled = !canEdit(); object.disabled = !canEdit();
+        tile.classList.toggle("selected", check.checked);
+      }
     for (const { check, ids } of groupChecks) {
       const count = ids.filter((id) => selection.has(id)).length;
-      check.checked = count === ids.length;
+      check.checked = count === ids.length; check.disabled = !canEdit();
       check.indeterminate = count > 0 && count < ids.length;
     }
-    q("assign").disabled = busy || !selection.size || !q("assignment-title").value.trim();
-    q("apply-role").disabled = busy || !selection.size;
-    const operation = q("bulk-operation").value;
-    q("apply-label").disabled = busy || !selection.size || !q("bulk-axis").value || operation === "unchanged" || (operation !== "clear" && (bulkValue === null || bulkValue === "" || (Array.isArray(bulkValue) && !bulkValue.length)));
-    q("mixed-status").textContent = "";
-    if (draft && selection.size && q("bulk-axis").value) {
-      const values = [...selection].map((id) => draft.photos[id].labels[q("bulk-axis").value]);
-      q("mixed-status").textContent = values.some((value) => !same(value, values[0])) ? "Selected photos have different current values." : "Selected photos have the same current value.";
+    renderInspector();
+    // Selection changes can discard staged labels, so refresh these guards too.
+    const staged = pendingCount(pending) > 0;
+    const ready = !!snapshot && !busy && !conflict;
+    q("save").disabled = !ready || !saveAllowed(snapshot, dirty, staged);
+    q("confirm").disabled = !ready || !confirmationAllowed(snapshot, draft, dirty, q("reviewer").value, staged) || snapshot.confirmed_revision === snapshot.revision;
+    q("export").disabled = !ready || staged || dirty || snapshot.confirmed_revision !== snapshot.revision;
+    q("reload").disabled = busy || staged;
+  }
+  function stage(axis, value) {
+    if (!canLabel()) return;
+    pendingContext ||= selectionContext(draft, selection);
+    pending = stageChoice(draft, selection, pending, axis, value);
+    updateActions();
+  }
+  function clearAxis(axis) {
+    if (!canLabel()) return;
+    pendingContext ||= selectionContext(draft, selection);
+    pending = stageClear(pending, axis);
+    updateActions();
+  }
+  function renderInspector() {
+    const root = q("inspector-fields"); root.replaceChildren();
+    q("inspector-count").textContent = selection.size === 1 ? "Label this photo" : "Label " + selection.size + " selected photos";
+    const staged = pendingCount(pending) > 0;
+    q("pending-status").textContent = staged ? "Pending labels — apply to the current selection or discard." : selection.size ? "Click a label to stage it. Other labels stay unchanged." : "Select a photo or group. All editing choices appear here.";
+    q("selection-help").textContent = selection.size && !canLabel() && canEdit() ? "Assign every selected photo to a named object before labeling." : "Mixed labels show ‘some’. Click to add to all; click a label present on all to remove it.";
+    const projected = draft ? projectPatch(draft, selection, pending) : null;
+    for (const [key, title] of [["representation", "Carrier"], ["coverage", "Framing"], [mode === "stele" ? "surfaces" : "positions", mode === "stele" ? "Stele face · select all visible" : "Work position · select all visible"], ["content", "Visible text and seals · select all visible"]]) {
+      if (!Object.hasOwn(taxonomy, key)) continue;
+      const field = node("section"); field.className = "inspector-field";
+      const header = node("div"); header.className = "field-heading";
+      const clear = button("Clear", () => clearAxis(key), "clear-field"); clear.disabled = !canLabel(); clear.setAttribute("aria-label", "Clear " + title);
+      header.append(node("h3", title), clear);
+      const choices = node("div"); choices.className = "chip-row";
+      for (const value of inspectorAxes[key]) {
+        const state = projected ? valueState(projected, selection, key, value) : "none";
+        const chip = button(name(value) + (state === "partial" ? " · some" : ""), () => stage(key, value), "label-chip");
+        chip.dataset.axis = key; chip.dataset.value = value; chip.dataset.state = state;
+        chip.setAttribute("aria-pressed", state === "partial" ? "mixed" : String(state === "all"));
+        chip.setAttribute("aria-label", title + ": " + name(value) + (state === "partial" ? " (some selected photos)" : ""));
+        chip.disabled = !canLabel(); choices.append(chip);
+      }
+      field.append(header, choices);
+      if (key === "surfaces") {
+        const reference = node("input"); reference.type = "checkbox"; reference.id = "facing-front";
+        const state = projected ? valueState(projected, selection, "side_reference", "facing_front") : "none";
+        reference.checked = state === "all"; reference.indeterminate = state === "partial"; reference.disabled = !canLabel();
+        reference.onchange = () => {
+          if (!canLabel()) return;
+          pendingContext ||= selectionContext(draft, selection);
+          pending = reference.checked ? stageChoice(draft, selection, pending, "side_reference", "facing_front") : stageClear(pending, "side_reference");
+          updateActions();
+        };
+        const help = label("I identify left / right while facing the stele front", reference); help.className = "side-confirmation";
+        field.append(help);
+        if (projected && sideReferenceNeeded(projected, selection)) { const warning = node("p", "Left / right needs the confirmation above before Apply."); warning.className = "field-warning"; field.append(warning); }
+      }
+      root.append(field);
+    }
+    const versionVisible = !!projected && [...selection].some((id) => ["rubbing", "facsimile"].includes(projected.photos[id].labels?.representation) || projected.photos[id].labels?.version_label);
+    if (versionVisible) {
+      const values = [...selection].map((id) => projected.photos[id].labels?.version_label ?? "");
+      const input = node("input"); input.type = "text"; input.maxLength = taxonomy.version_label?.maxLength || 120;
+      input.id = "version-label"; input.value = values.every((value) => same(value, values[0])) ? values[0] : "";
+      input.placeholder = values.some((value) => !same(value, values[0])) ? "Mixed versions — type to replace" : "Optional known copy or rubbing ID";
+      input.disabled = !canLabel();
+      input.oninput = () => {
+        if (!canLabel()) return;
+        pendingContext ||= selectionContext(draft, selection);
+        pending = { ...pending, version_label: [{ operation: input.value.trim() ? "set" : "clear", value: input.value.trim() || null }] };
+        // Preserve the input and cursor while typing; update only action guards.
+        q("pending-status").textContent = "Pending labels — apply to the current selection or discard.";
+        updatePendingActions();
+      };
+      const field = node("section"); field.className = "inspector-field";
+      field.append(label("Rubbing / copy ID (optional)", input)); root.append(field);
+    }
+    for (const control of q("inspector-mode").querySelectorAll("button")) { control.disabled = busy || conflict; control.setAttribute("aria-pressed", String(control.dataset.mode === mode)); }
+    updatePendingActions(projected);
+  }
+  function updatePendingActions(projected = draft ? projectPatch(draft, selection, pending) : null) {
+    const staged = pendingCount(pending) > 0;
+    q("apply-inspector").textContent = "Apply to " + selection.size + (selection.size === 1 ? " photo" : " photos");
+    q("apply-inspector").disabled = !canLabel() || !staged || sideReferenceNeeded(projected, selection);
+    q("discard-inspector").disabled = busy || conflict || !staged;
+    if (staged) {
+      for (const id of ["save", "confirm", "export", "reload"]) q(id).disabled = true;
+      q("confirmation-help").textContent = "Apply or discard the pending labels before saving, confirming, exporting or reloading.";
     }
   }
-  function labelInput(key, definition, value, change) {
-    if (definition.type === "array") {
-      const box = node("div");
-      box.className = "annotation-options";
-      const checks = [];
-      for (const item of definition.items.enum) {
-        const check = node("input"); check.type = "checkbox"; check.value = item;
-        check.checked = (value || []).includes(item);
-        check.setAttribute("aria-label", axisNames[key] + ": " + name(item));
-        check.onchange = () => {
-          let values = checks.filter((c) => c.checked).map((c) => c.value);
-          if (check.checked && uncertainty.has(item)) values = [item];
-          else if (values.length > 1) values = values.filter((v) => !uncertainty.has(v));
-          for (const c of checks) c.checked = values.includes(c.value);
-          change(values.sort());
-        };
-        checks.push(check); box.append(label(name(item), check));
-      }
-      return box;
-    }
-    if (definition.enum) return selectControl(definition.enum.map((value) => [value, value === null ? "Not annotated / clear" : name(value)]), value, (value) => change(value || null));
-    const control = node("input");
-    control.type = key === "position_index" ? "number" : "text";
-    if (control.type === "number") control.min = "1";
-    else control.maxLength = definition.maxLength || 1000;
-    control.value = value ?? "";
-    control.onchange = () => change(control.value === "" ? null : control.type === "number" ? Number(control.value) : control.value);
-    return control;
+  function photoSummary(photo) {
+    const values = photo.labels || {};
+    const labels = ["representation", "coverage", "surfaces", "positions", "content", "version_label"].flatMap((key) => {
+      const value = values[key]; return Array.isArray(value) ? value.map(name) : value ? [key === "version_label" ? "Copy: " + value : name(value)] : [];
+    });
+    return labels.length ? labels.join(" · ") : "No human labels yet";
   }
   function buildPhoto(asset) {
     const id = asset.asset_id;
     const tile = node("article"); tile.className = "photo-card";
     const image = node("img"); image.src = "/previews/" + encodeURIComponent(id) + ".jpg"; image.alt = "Prepared photo " + id; image.loading = "lazy";
     const check = node("input"); check.type = "checkbox"; check.setAttribute("aria-label", "Select photo " + id);
-    check.onchange = () => { selection = toggleSelection(selection, [id], check.checked); updateSelection(); };
+    check.onchange = () => { if (!canEdit()) return; selection = toggleSelection(selection, [id], check.checked); updateSelection(); };
     const selectionLabel = label("Select this photo", check); selectionLabel.className = "photo-selection";
-    tile.append(image, node("p", id), selectionLabel); tile.children[1].className = "photo-id";
-    const purpose = selectControl(Object.entries(roleNames), draft.photos[id].role, (value) => { updated(editSelected(draft, [id], { role: value })); renderPhotoCopies(id); });
-    tile.append(label("Photo purpose", purpose));
+    const single = button("Label this photo", () => { if (!canEdit()) return; selection = new Set([id]); updateSelection();
+      const inspector = q("inspector"); inspector.focus({ preventScroll: true });
+      // Sticky panels can be displaced by the end of their parent near the last
+      // group. Move only enough to expose the inspector, preserving this photo.
+      inspector.scrollIntoView({ block: "nearest", inline: "nearest" }); });
+    single.setAttribute("aria-label", "Label only photo " + id);
+    const title = node("p", id); title.className = "photo-id";
+    tile.append(image, title, selectionLabel, single);
     const object = selectControl([["", "Not assigned"], ...draft.objects.map((o) => [o.object_id, o.title])], draft.photos[id].object_id, (value) => {
+      if (!canEdit()) return;
       const next = copy(draft); next.photos[id].object_id = value || null; updated(synchronizeMemberships(next)); render();
     });
     tile.append(label("Assigned object", object));
-    const details = node("details"); details.className = "annotation-panel";
-    const values = draft.photos[id].labels;
-    const present = Object.entries(values).flatMap(([key, value]) => Array.isArray(value) ? value.map(name) : value === null ? [] : [typeof value === "string" && valueNames[value] ? name(value) : axisNames[key]]);
-    details.append(node("summary", "Professional labels · " + (present.length ? present.join(", ") : "Not annotated")));
-    for (const [key, definition] of Object.entries(taxonomy)) {
-      const control = labelInput(key, definition, values[key], (value) => { updated(editSelected(draft, [id], { axis: key, operation: "set", value, multi: definition.type === "array" })); refreshLabelSummary(id); });
-      // Each checkbox owns its label. An outer label would nest labels and can
-      // make clicks select the wrong checkbox in a multi-value dimension.
-      const field = definition.type === "array" ? node("div") : label(axisNames[key] || name(key), control);
-      if (definition.type === "array") field.append(node("p", axisNames[key] || name(key)), control);
-      field.className = "annotation-field"; field.dataset.axis = key;
-      const empty = Array.isArray(values[key]) ? !values[key].length : !values[key];
-      field.hidden = empty && ((values.object_kind === "calligraphy" && ["surfaces", "parts", "side_reference"].includes(key)) || (values.object_kind === "inscription" && ["work_format", "positions", "position_index"].includes(key)));
-      if (key === "positions") {
-        const relevant = {
-          handscroll: ["main_work", "frontispiece", "tail", "cover_mount"],
-          album: ["main_work", "leaf_page", "cover_mount"],
-          folded_book: ["main_work", "leaf_page", "cover_mount"],
-          hanging_scroll: ["main_work", "cover_mount"],
-        }[values.work_format];
-        for (const option of control.children) {
-          const check = option.lastElementChild;
-          if (check) option.hidden = !!relevant && ![...relevant, "other", "unknown", "not_applicable"].includes(check.value) && !check.checked;
-        }
-      }
-      details.append(field);
-    }
-    details.append(node("p", "Sides use the view facing the stele front. Unknown does not mean absent. Labels describe the image; they do not align regions or train a model.")); details.lastChild.className = "annotation-hint";
-    tile.append(details);
+    const badges = node("p", photoSummary(draft.photos[id])); badges.className = "photo-labels"; tile.append(badges);
+    const purpose = node("p", "Purpose: " + (roleNames[draft.photos[id].role] || draft.photos[id].role) + (draft.photos[id].labels?.coverage ? " · framing labeled" : " · framing not labeled")); purpose.className = "photo-purpose";
+    tile.append(purpose);
     if (!cards.has(id)) cards.set(id, []);
-    cards.get(id).push({ tile, check });
+    cards.get(id).push({ tile, check, single, object });
     return tile;
-  }
-  function refreshLabelSummary(id) {
-    // Recreate repeated appearances from one canonical photo draft, retaining open panels.
-    renderPhotoCopies(id);
-  }
-  function renderPhotoCopies(id) {
-    const previous = cards.get(id) || [];
-    cards.set(id, []);
-    const asset = snapshot.assets.find((a) => a.asset_id === id);
-    for (const { tile } of previous) {
-      const opened = tile.querySelector("details").open;
-      const next = buildPhoto(asset); next.querySelector("details").open = opened;
-      tile.replaceWith(next);
-    }
-    updateSelection();
   }
   function rebuildAssignmentTargets(value = q("assignment-target").value || "new") {
     const control = q("assignment-target"); control.replaceChildren();
@@ -268,7 +370,6 @@
     control.value = draft.objects.some((o) => o.object_id === value) ? value : "new";
   }
   function render() {
-    const opened = new Set([...cards].filter(([, entries]) => entries.some(({ tile }) => tile.querySelector("details").open)).map(([id]) => id));
     cards.clear(); groupChecks.length = 0;
     const groups = sourceGroups(snapshot); const root = q("photo-groups"); root.replaceChildren();
     const processed = snapshot.processed_asset_ids?.length ?? new Set(groups.filter((g) => g.kind === "ai").flatMap((g) => g.asset_ids)).size;
@@ -278,30 +379,14 @@
       const header = node("div"); header.className = "source-header";
       header.append(node("h2", (group.kind === "ai" ? "AI source group " + (index + 1) : "Photos without an AI group") + " · " + group.asset_ids.length + " photos"));
       const check = node("input"); check.type = "checkbox"; check.setAttribute("aria-label", "Select source group " + group.key);
-      check.onchange = () => { selection = toggleSelection(selection, group.asset_ids, check.checked); updateSelection(); };
+      check.onchange = () => { if (!canEdit()) return; selection = toggleSelection(selection, group.asset_ids, check.checked); updateSelection(); };
       groupChecks.push({ check, ids: group.asset_ids }); header.append(label("Select this source group", check));
-      header.append(node("p", group.kind === "ai" ? "Source proposal preserved. Your object assignment and labels are saved separately." : "Prepared photos remain selectable even when inference is unfinished or did not return a group."));
+      header.append(node("p", group.kind === "ai" ? "Source proposal preserved. Your assignment and labels are saved separately." : "Prepared photos remain selectable even when inference is unfinished or did not return a group."));
       const grid = node("div"); grid.className = "photo-grid";
-      for (const id of group.asset_ids) {
-        const card = buildPhoto(snapshot.assets.find((a) => a.asset_id === id));
-        card.querySelector("details").open = opened.has(id);
-        grid.append(card);
-      }
+      for (const id of group.asset_ids) grid.append(buildPhoto(snapshot.assets.find((a) => a.asset_id === id)));
       section.append(header, grid); root.append(section);
     }
     rebuildAssignmentTargets(); updateActions();
-  }
-  function configureBulk() {
-    bulkValue = null;
-    const axis = q("bulk-axis").value; const operation = q("bulk-operation"); operation.replaceChildren(); q("bulk-value").replaceChildren();
-    if (axis) {
-      const definition = taxonomy[axis];
-      for (const [key, text] of [["unchanged", "Leave unchanged"], ["set", "Replace this dimension"], ...(definition.type === "array" ? [["add", "Add selected labels"], ["remove", "Remove selected labels"]] : []), ["clear", "Clear this dimension"]]) {
-        const option = node("option", text); option.value = key; operation.append(option);
-      }
-      q("bulk-value").append(labelInput(axis, definition, null, (value) => { bulkValue = value; updateSelection(); }));
-    }
-    updateSelection();
   }
   async function request(path, data) {
     const response = await fetch(path, data === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-ArtVenn-Session": config.csrfToken }, body: JSON.stringify(data) });
@@ -310,9 +395,9 @@
       if (response.status === 409) conflict = true;
       const category = value.message || value.error_category || value.category || value.error || "Request failed";
       const reason = {
-        annotation_side_reference_required: "Left or right side labels require the explicit facing-front side reference. Set Side reference for those photos first.",
-        annotation_uncertainty_conflict: "Unknown or not applicable cannot be combined with a definite label in the same dimension.",
-        annotation_value_invalid: "A professional label is invalid. Check the page number, text length and available choices.",
+        annotation_side_reference_required: "Confirm the facing-front reference before applying left or right labels.",
+        annotation_uncertainty_conflict: "Unknown cannot be combined with definite labels in the same dimension.",
+        annotation_value_invalid: "A label is invalid. Check the available choices and text length.",
         review_unassigned_photos: "Assign every prepared photo to a named object before confirming.",
         review_object_name_required: "Give every assigned object a nonblank title before confirming.",
         reviewer_required: "Enter a nonblank reviewer name before confirming.",
@@ -325,16 +410,14 @@
   }
   function accept(value) {
     snapshot = value.review || value; draft = copy(snapshot.draft); taxonomy = snapshot.taxonomy || {};
-    dirty = false; conflict = false;
-    const axis = q("bulk-axis"); const old = axis.value; axis.replaceChildren();
-    const empty = node("option", "Choose a label dimension"); empty.value = ""; axis.append(empty);
-    for (const key of Object.keys(taxonomy)) { const option = node("option", axisNames[key] || name(key)); option.value = key; axis.append(option); }
-    if (Object.hasOwn(taxonomy, old)) axis.value = old;
+    dirty = false; conflict = false; discardPending();
     selection = new Set([...selection].filter((id) => Object.hasOwn(draft.photos, id)));
-    configureBulk(); render();
+    const kinds = [...selection].map((id) => draft.photos[id].labels?.object_kind);
+    if (kinds.length && kinds.every((kind) => kind === "calligraphy")) mode = "calligraphy";
+    render();
   }
   async function operate(path, data, onSuccess) {
-    if (busy) return;
+    if (busy || pendingCount(pending)) return;
     busy = true;
     document.querySelectorAll("button, input, select").forEach((control) => { control.disabled = true; });
     announce("Working locally…");
@@ -343,40 +426,57 @@
     finally { busy = false; document.querySelectorAll("button, input, select").forEach((control) => { control.disabled = false; }); updateActions(); }
   }
   q("reload").onclick = () => {
+    if (busy || pendingCount(pending)) { announce("Apply or discard the pending labels before reloading.", true); return; }
     if (dirty && !window.confirm("Discard the unsaved edits on this page and reload the saved review?")) return;
     operate("/api/review", undefined, (value) => { accept(value); announce("Saved review loaded. Originals and AI groups are unchanged."); });
   };
-  q("select-all").onclick = () => { selection = new Set(snapshot.assets.map((a) => a.asset_id)); updateSelection(); };
-  q("clear-selection").onclick = () => { selection.clear(); updateSelection(); };
+  q("select-all").onclick = () => { if (!canEdit()) return; selection = new Set(snapshot.assets.map((a) => a.asset_id)); updateSelection(); };
+  q("clear-selection").onclick = () => { if (!canEdit()) return; selection.clear(); updateSelection(); };
   q("assignment-target").onchange = () => {
     q("assignment-title").value = draft.objects.find((o) => o.object_id === q("assignment-target").value)?.title || ""; updateSelection();
   };
   q("assignment-title").oninput = updateSelection;
   q("assign").onclick = () => {
+    if (!canEdit() || !selection.size) return;
     const id = q("assignment-target").value === "new" ? "object-" + crypto.randomUUID() : q("assignment-target").value;
-    try { updated(assignPhotos(draft, [...selection], id, q("assignment-title").value)); render(); rebuildAssignmentTargets(id); q("batch-status").textContent = "Assigned " + selection.size + " photos. Save the draft when ready."; }
-    catch (error) { announce(error.message, true); }
+    try {
+      const hadPending = pendingCount(pending) > 0;
+      updated(assignPhotos(draft, [...selection], id, q("assignment-title").value)); render(); rebuildAssignmentTargets(id);
+      if (!hadPending || pendingCount(pending)) q("batch-status").textContent = "Assigned " + selection.size + " photos. Save the draft when ready.";
+    } catch (error) { announce(error.message, true); }
   };
-  for (const [key, text] of Object.entries(roleNames)) { const option = node("option", text); option.value = key; q("bulk-role").append(option); }
-  q("apply-role").onclick = () => { updated(editSelected(draft, [...selection], { role: q("bulk-role").value })); for (const id of selection) renderPhotoCopies(id); q("batch-status").textContent = "Purpose updated for " + selection.size + " photos; other labels preserved."; };
-  q("bulk-axis").onchange = configureBulk;
-  q("bulk-operation").onchange = updateSelection;
-  q("apply-label").onclick = () => {
-    const axis = q("bulk-axis").value;
-    updated(editSelected(draft, [...selection], { axis, operation: q("bulk-operation").value, value: bulkValue, multi: taxonomy[axis].type === "array" }));
-    for (const id of selection) renderPhotoCopies(id);
-    q("batch-status").textContent = "Edited " + axisNames[axis] + " for " + selection.size + " photos. Other dimensions remain unchanged; save and confirm separately.";
+  for (const [key, text] of [["stele", "Stele faces"], ["calligraphy", "Work positions"]]) {
+    const control = button(text, () => { if (busy || conflict) return; mode = key; renderInspector(); }); control.dataset.mode = key;
+    q("inspector-mode").append(control);
+  }
+  q("apply-inspector").onclick = () => {
+    if (!canLabel() || !pendingCount(pending)) return;
+    try {
+      const next = applyInspectorPatch(draft, selection, pending, pendingContext);
+      discardPending("Labels applied to " + selection.size + " photos. Save the local draft when ready."); updated(next); render();
+    } catch (error) { announce(error.message, true); }
   };
+  q("discard-inspector").onclick = () => { if (busy || conflict) return; discardPending("Pending labels discarded. Saved and applied labels are unchanged."); updateActions(); };
   q("reviewer").oninput = updateActions;
-  q("save").onclick = () => operate("/api/save", { expected_revision: snapshot.revision, draft }, (value) => { accept(value); announce("Draft saved locally. No human decision was recorded."); });
-  q("confirm").onclick = () => operate("/api/confirm", { expected_revision: snapshot.revision, reviewer: q("reviewer").value.trim() }, (value) => { accept(value); announce("The saved revision has a separate named human confirmation."); });
-  q("export").onclick = () => operate("/api/export", { expected_revision: snapshot.revision }, (value) => {
-    q("export-result").replaceChildren(node("span", "Confirmed metadata exported. Originals are not included. "));
-    if (typeof value.download_url === "string" && value.download_url.startsWith("/") && !value.download_url.startsWith("//")) {
-      const link = node("a", "Download metadata dataset"); link.href = value.download_url; link.setAttribute("download", ""); q("export-result").append(link);
-    }
-    if (value.summary || value.counts) q("export-result").append(node("p", JSON.stringify(value.summary || value.counts)));
-    announce("Export completed locally. Nothing was uploaded or published.");
-  });
-  operate("/api/review", undefined, (value) => { accept(value); announce("Choose photos below to assign an object or edit labels."); });
+  q("save").onclick = () => {
+    if (busy || conflict || !saveAllowed(snapshot, dirty, pendingCount(pending) > 0)) return;
+    operate("/api/save", { expected_revision: snapshot.revision, draft }, (value) => { accept(value); announce("Draft saved locally. No human decision was recorded."); });
+  };
+  q("confirm").onclick = () => {
+    if (busy || conflict || !confirmationAllowed(snapshot, draft, dirty, q("reviewer").value, pendingCount(pending) > 0) || snapshot.confirmed_revision === snapshot.revision) return;
+    operate("/api/confirm", { expected_revision: snapshot.revision, reviewer: q("reviewer").value.trim() }, (value) => { accept(value); announce("The saved revision has a separate named human confirmation."); });
+  };
+  q("export").onclick = () => {
+    if (busy || conflict || pendingCount(pending) || dirty || snapshot?.confirmed_revision !== snapshot?.revision) return;
+    operate("/api/export", { expected_revision: snapshot.revision }, (value) => {
+      q("export-result").replaceChildren(node("span", "Confirmed metadata exported. Originals are not included. "));
+      if (typeof value.download_url === "string" && value.download_url.startsWith("/") && !value.download_url.startsWith("//")) {
+        const link = node("a", "Download metadata dataset"); link.href = value.download_url; link.setAttribute("download", ""); q("export-result").append(link);
+      }
+      if (value.summary || value.counts) q("export-result").append(node("p", JSON.stringify(value.summary || value.counts)));
+      announce("Export completed locally. Nothing was uploaded or published.");
+    });
+  };
+  window.addEventListener("beforeunload", (event) => { if (dirty || pendingCount(pending)) { event.preventDefault(); event.returnValue = ""; } });
+  operate("/api/review", undefined, (value) => { accept(value); announce("Select photos, assign a named object, then label them in the side panel."); });
 })();

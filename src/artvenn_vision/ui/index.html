@@ -10,8 +10,8 @@
     <header class="page-header">
       <div>
         <p class="eyebrow">ArtVenn Vision · Local review</p>
-        <h1>Organize photos, then confirm their labels</h1>
-        <p>AI groups remain source suggestions. Assign groups or individual photos to your own named objects.</p>
+        <h1>Organize photos, then label what is visible</h1>
+        <p>AI groups stay as source proposals. Select groups or individual photos for your own named objects.</p>
       </div>
       <button id="reload" type="button">Reload saved review</button>
     </header>
@@ -21,36 +21,36 @@
         <p id="revision-status"></p>
         <p id="notice" role="status" aria-live="polite"></p>
       </section>
-      <section id="selection-toolbar" class="selection-toolbar" aria-label="Edit selected photos">
+      <section id="selection-toolbar" class="selection-toolbar" aria-label="Assign selected photos">
         <div class="selection-row">
           <strong id="selected-count">0 photos selected</strong>
           <button id="select-all" type="button">Select all photos</button>
           <button id="clear-selection" type="button">Clear selection</button>
-          <span id="batch-status" role="status" aria-live="polite"></span>
         </div>
-        <details class="batch-panel" open>
-          <summary>Assign photos and edit labels in bulk</summary>
-          <div class="batch-tools">
-            <div class="assignment-tools">
-              <label>Object <select id="assignment-target" aria-label="Assignment target"></select></label>
-              <label>Object title <input id="assignment-title" type="text" maxlength="120" placeholder="Name this inscription or work" /></label>
-              <button id="assign" type="button">Assign selected photos</button>
-            </div>
-            <div class="role-tools">
-              <label>Photo purpose <select id="bulk-role"></select></label>
-              <button id="apply-role" type="button">Apply purpose</button>
-            </div>
-            <div class="label-tools">
-              <label>Professional label <select id="bulk-axis"></select></label>
-              <label>Operation <select id="bulk-operation"></select></label>
-              <div id="bulk-value"></div>
-              <button id="apply-label" type="button">Apply label</button>
-              <span id="mixed-status"></span>
-            </div>
-          </div>
-        </details>
+        <div class="assignment-tools">
+          <label>Object <select id="assignment-target" aria-label="Assignment target"></select></label>
+          <label>Object title <input id="assignment-title" type="text" maxlength="120" placeholder="Name this inscription or work" /></label>
+          <button id="assign" type="button">Assign selected photos</button>
+        </div>
+        <p id="batch-status" role="status" aria-live="polite"></p>
       </section>
-      <div id="photo-groups" aria-label="All prepared photos"></div>
+      <div class="review-workspace">
+        <aside id="inspector" class="inspector" tabindex="-1" aria-label="Photo labels">
+          <div class="inspector-heading">
+            <h2 id="inspector-count">Label selected photos</h2>
+            <p id="pending-status" role="status" aria-live="polite"></p>
+          </div>
+          <div id="inspector-mode" class="inspector-mode" aria-label="Show stele or calligraphy positions"></div>
+          <div id="inspector-fields"></div>
+          <p id="selection-help" class="inspector-help"></p>
+          <div class="inspector-actions">
+            <button id="apply-inspector" type="button" class="primary">Apply labels</button>
+            <button id="discard-inspector" type="button">Discard pending</button>
+          </div>
+          <p class="inspector-help">Labels organize samples for retrieval, matching and OCR. Region boxes, checked text and image correspondences remain separate algorithm data. Unselected does not mean absent.</p>
+        </aside>
+        <div id="photo-groups" aria-label="All prepared photos"></div>
+      </div>
       <section class="save-panel" aria-label="Save and confirm review">
         <h2>Save, explicitly confirm, then export</h2>
         <p>Saving records your draft. Confirmation creates a separate human decision. Originals and AI proposals remain unchanged.</p>
