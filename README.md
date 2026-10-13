@@ -52,14 +52,22 @@ uv run artvenn-vision export --run runs/inscription --output datasets/inscriptio
 
 The English editor shows every prepared photo, including photos without a completed
 AI result. AI source groups remain separate and unchanged. Select whole groups or
-individual photos, assign them to a new or existing named object, and set image
-roles and professional annotations individually or in batches. The toolbar stays
-visible while scrolling and the grid adapts to the available window width.
+individual photos and assign them to a new or existing named object. A single
+persistent inspector beside the responsive grid handles both one-photo and batch
+label editing with direct buttons, without nested annotation menus.
 
-Professional annotations distinguish stele surfaces and parts, calligraphy format
-and position, content, representation, capture coverage and version. These are
-independent of the broad photo role. A photo can contain multiple surfaces,
-positions or content types. Unknown is a valid choice; do not manufacture labels.
+The daily inspector shows only **carrier, framing, stele surface / calligraphy
+position, and visible text / seals**. A rubbing/version identifier appears when
+relevant. Partial tags are explicit: click to add that tag to all selected photos,
+or click an already unanimous tag to remove it. Other tags and stored catalogue
+fields remain intact. Apply the staged changes before saving or confirming;
+changing selected photos or their object assignments cancels unapplied edits with
+a notice. An explicit framing choice also updates the compatible broad photo
+role; an old AI role never becomes a confirmed whole surface/page label.
+
+Unknown is valid. Left/right requires an explicit facing-front reference. Tags
+help organize retrieval, matching and OCR inputs; they do not establish character
+boxes, checked transcription, geometric overlap or algorithm ground truth.
 
 **Save draft** stores an immutable revision without confirming it. **Confirm**
 records your explicit decision and reviewer name for the saved revision. Editing
